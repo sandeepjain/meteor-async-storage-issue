@@ -1,9 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { Worker } from "@temporalio/worker";
+import { Context } from "@temporalio/activity";
 import { Client } from "@temporalio/client";
+import { randomUUID } from "node:crypto";
 
 console.log("LOADING test.js");
 
-export function hereItStarts() {
+export async function hereItStarts() {
   const asyncLocalStorage = new AsyncLocalStorage();
 
   function logWithId(msg) {
@@ -19,9 +22,23 @@ export function hereItStarts() {
     });
   });
 
+  const workflowId = "test" + randomUUID();
   const client = new Client({});
-  client.workflow.start("test-workflow", {
-    workflowId: "test",
+  await client.workflow.start("httpWorkflow", {
+    workflowId: workflowId,
     taskQueue: "test",
   });
+
+  const worker = await Worker.create({
+    taskQueue: "test",
+    activities: {
+      async testActivity() {
+        console.log(
+          `testActivity ${Context.current().info.workflowExecution.workflowId}`
+        );
+      },
+    },
+    maxConcurrentActivityTaskExecutions: 1,
+  });
+  await worker.run();
 }

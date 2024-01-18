@@ -6,10 +6,15 @@ const moduleLoadOriginal = Module._load;
 const mockedAsyncLocalStorage = {
   AsyncLocalStorage: class AsyncLocalStorage {
     run(_store, callback, ...args) {
-      return callback(...args);
+      this._store = _store;
+      try {
+        return callback(...args);
+      } finally {
+        this._store = undefined;
+      }
     }
     getStore() {
-      return {};
+      return this._store;
     }
     // Other methods below should not be called by the Temporal client package
     disable() {
@@ -26,9 +31,9 @@ const mockedAsyncLocalStorage = {
 
 Module._load = function (uri, parent) {
   if (uri === "node:async_hooks" || uri === "async_hooks") {
-    if (parent?.filename?.endsWith("@temporalio/client/lib/connection.js")) {
-      return mockedAsyncLocalStorage;
-    }
+    // if (parent?.filename?.endsWith("@temporalio/client/lib/connection.js")) {
+    return mockedAsyncLocalStorage;
+    // }
   }
 
   return moduleLoadOriginal(uri, parent);
